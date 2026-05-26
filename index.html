@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>美甲預約時段圖產生器</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Nail Booking Board</p>
+            <h1>預約時段圖產生器</h1>
+          </div>
+          <button class="primary-action" id="exportBtn" type="button">匯出 PNG</button>
+        </header>
+
+        <div class="layout">
+          <aside class="control-panel" aria-label="編輯設定">
+            <section class="panel-section">
+              <div class="section-heading">
+                <h2>快速產生</h2>
+                <button class="ghost-action" id="generateBtn" type="button">產生時段</button>
+              </div>
+
+              <div class="inline-form month-form">
+                <label class="field">
+                  <span>年份</span>
+                  <select id="yearInput"></select>
+                </label>
+                <label class="field">
+                  <span>月份</span>
+                  <select id="monthSelectInput">
+                    <option value="01">1 月</option>
+                    <option value="02">2 月</option>
+                    <option value="03">3 月</option>
+                    <option value="04">4 月</option>
+                    <option value="05">5 月</option>
+                    <option value="06">6 月</option>
+                    <option value="07">7 月</option>
+                    <option value="08">8 月</option>
+                    <option value="09">9 月</option>
+                    <option value="10">10 月</option>
+                    <option value="11">11 月</option>
+                    <option value="12">12 月</option>
+                  </select>
+                </label>
+              </div>
+
+              <label class="field">
+                <span>平日時段</span>
+                <input id="weekdayTimesInput" type="text" value="18:00" placeholder="可輸入多個，例如：11:00, 14:00, 18:00, 20:00" />
+              </label>
+
+              <label class="field">
+                <span>假日時段</span>
+                <input id="weekendTimesInput" type="text" value="10:00, 13:00, 17:00" placeholder="可輸入多個，以逗號或空格分隔" />
+              </label>
+
+              <label class="field compact-field">
+                <span>每月接客到</span>
+                <input id="cutoffInput" type="number" min="1" max="31" value="15" />
+                <small>號為止</small>
+              </label>
+            </section>
+
+            <section class="panel-section">
+              <div class="section-heading">
+                <h2>排除與加開</h2>
+                <button class="ghost-action" id="generateBtnSecondary" type="button">產生時段</button>
+              </div>
+
+              <div class="inline-form">
+                <label class="field">
+                  <span>休息日期</span>
+                  <input id="excludeDateInput" type="date" />
+                </label>
+                <button id="addExcludeBtn" class="icon-action" type="button" aria-label="加入休息日">+</button>
+              </div>
+              <div class="tag-list" id="excludeList"></div>
+
+              <div class="inline-form extra-form">
+                <label class="field">
+                  <span>加開日期</span>
+                  <input id="extraDateInput" type="date" />
+                </label>
+                <label class="field time-field">
+                  <span>時間</span>
+                  <input id="extraTimeInput" type="time" value="20:00" />
+                </label>
+                <button id="addExtraBtn" class="icon-action" type="button" aria-label="加入加開時段">+</button>
+              </div>
+              <div class="tag-list" id="extraList"></div>
+            </section>
+
+            <section class="panel-section">
+              <h2>公告內容</h2>
+              <label class="field">
+                <span>標題</span>
+                <input id="titleInput" type="text" value="2026/06" maxlength="24" />
+              </label>
+              <label class="field">
+                <span>標題預設</span>
+                <select id="titleFormatInput">
+                  <option value="yearMonth">2026/06</option>
+                  <option value="englishLong">June 2026</option>
+                  <option value="englishShort">Jun 2026</option>
+                  <option value="englishUpper">JUNE 2026</option>
+                  <option value="englishMonthOnly">June</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>副標</span>
+                <input id="subtitleInput" type="text" value="預約請私訊｜每月 15 號後不接客" maxlength="40" />
+              </label>
+              <label class="field">
+                <span>標題左右</span>
+                <span class="range-control"><small>左</small><input id="titleXInput" type="range" min="5" max="75" step="1" value="11" /><small>右</small></span>
+              </label>
+              <label class="field">
+                <span>標題上下</span>
+                <span class="range-control"><small>上</small><input id="titleYInput" type="range" min="4" max="30" step="1" value="11" /><small>下</small></span>
+              </label>
+              <label class="field">
+                <span>標題大小</span>
+                <span class="range-control"><small>小</small><input id="titleSizeInput" type="range" min="0.7" max="1.4" step="0.05" value="1" /><small>大</small></span>
+              </label>
+              <label class="field">
+                <span>副標左右</span>
+                <span class="range-control"><small>左</small><input id="subtitleXInput" type="range" min="5" max="75" step="1" value="11" /><small>右</small></span>
+              </label>
+              <label class="field">
+                <span>副標上下</span>
+                <span class="range-control"><small>上</small><input id="subtitleYInput" type="range" min="8" max="36" step="1" value="16" /><small>下</small></span>
+              </label>
+              <label class="field">
+                <span>帳號 / 店名</span>
+                <input id="brandInput" type="text" value="@xiang.nail" maxlength="24" />
+              </label>
+              <div class="inline-form">
+                <label class="field">
+                  <span>備注</span>
+                  <input id="noteInput" type="text" maxlength="36" placeholder="例如：預約請私訊確認" />
+                </label>
+                <button id="addNoteBtn" class="icon-action" type="button" aria-label="加入備注">+</button>
+              </div>
+              <div class="tag-list" id="notesList"></div>
+              <label class="field">
+                <span>備注左右</span>
+                <span class="range-control"><small>左</small><input id="noteXInput" type="range" min="5" max="75" step="1" value="50" /><small>右</small></span>
+              </label>
+              <label class="field">
+                <span>備注上下</span>
+                <span class="range-control"><small>上</small><input id="noteYInput" type="range" min="68" max="90" step="1" value="85" /><small>下</small></span>
+              </label>
+              <label class="field">
+                <span>備注大小</span>
+                <span class="range-control"><small>小</small><input id="noteSizeInput" type="range" min="0.75" max="1.35" step="0.05" value="1" /><small>大</small></span>
+              </label>
+              <label class="field">
+                <span>背景圖</span>
+                <input id="backgroundInput" type="file" accept="image/*" />
+              </label>
+
+              <label class="field">
+                <span>背景圖透明度</span>
+                <input id="backgroundOpacityInput" type="range" min="0.15" max="1" step="0.05" value="0.45" />
+              </label>
+            </section>
+
+            <section class="panel-section">
+              <h2>版型</h2>
+              <div class="segmented" role="radiogroup" aria-label="版型">
+                <button class="segment active" data-template="calendar" type="button">日曆</button>
+                <button class="segment" data-template="cards" type="button">橫排</button>
+              </div>
+
+              <label class="field">
+                <span>標題及備注顏色</span>
+                <input id="titleColorInput" type="color" value="#24211f" />
+              </label>
+              <label class="field">
+                <span>內容顏色</span>
+                <input id="contentColorInput" type="color" value="#5f5750" />
+              </label>
+
+              <label class="toggle-field">
+                <input id="frameInput" type="checkbox" />
+                <span>顯示外框</span>
+              </label>
+
+              <label class="field">
+                <span>日期框樣式</span>
+                <select id="dateFrameStyleInput">
+                  <option value="none">無框</option>
+                  <option value="outline">有框</option>
+                  <option value="underline">橫線</option>
+                  <option value="noFill">無框無底</option>
+                  <option value="lineOnly">無底橫線</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>橫排時段對齊</span>
+                <select id="cardsAlignInput">
+                  <option value="right">靠右</option>
+                  <option value="left">靠左</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>行距</span>
+                <input id="lineGapInput" type="range" min="0.85" max="1.35" step="0.05" value="1" />
+              </label>
+            </section>
+
+            <section class="panel-section">
+              <div class="section-heading">
+                <h2>儲存設計</h2>
+                <button class="ghost-action" id="saveDesignBtn" type="button">儲存</button>
+              </div>
+              <label class="field">
+                <span>已儲存</span>
+                <select id="savedDesignsInput"></select>
+              </label>
+              <button class="ghost-action full-action" id="loadDesignBtn" type="button">載入設計</button>
+              <button class="ghost-action full-action" id="deleteDesignBtn" type="button">刪除設計</button>
+            </section>
+          </aside>
+
+          <section class="preview-area" aria-label="預覽">
+            <div class="preview-toolbar">
+              <div>
+                <p class="eyebrow">Live Preview</p>
+                <h2 id="previewTitle">預覽公告圖</h2>
+              </div>
+              <p id="slotSummary" class="summary-pill">0 個可約時段</p>
+            </div>
+            <div class="canvas-wrap">
+              <canvas id="posterCanvas" width="1080" height="1920"></canvas>
+            </div>
+          </section>
+
+          <section class="schedule-panel" aria-label="時段微調">
+            <div class="section-heading">
+              <h2>時段微調</h2>
+              <button class="ghost-action" id="clearBtn" type="button">清空</button>
+            </div>
+            <p class="hint">每個時段可直接調整時間，旁邊按鈕可切換「可約 / 已滿」。日期按鈕可整天快速標記。</p>
+            <div id="scheduleList" class="schedule-list"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
