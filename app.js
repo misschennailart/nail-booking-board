@@ -34,6 +34,7 @@ const state = {
   backgroundImage: null,
 };
 let loadedSavedState = false;
+let backgroundLoadToken = 0;
 
 const els = {};
 const weekdayNames = ["日", "一", "二", "三", "四", "五", "六"];
@@ -208,8 +209,9 @@ function bindEventsContinued() {
     if (!date || state.excludes.includes(date)) return;
     state.excludes.push(date);
     els.excludeDateInput.value = "";
+    generateSlots();
     saveState();
-    renderLists();
+    render();
   });
 
   els.addExtraBtn.addEventListener("click", () => {
@@ -218,8 +220,9 @@ function bindEventsContinued() {
     if (!date || !time) return;
     state.extras.push({ date, time });
     els.extraDateInput.value = "";
+    generateSlots();
     saveState();
-    renderLists();
+    render();
   });
 
   els.addNoteBtn.addEventListener("click", () => {
@@ -332,8 +335,8 @@ function hydrateInputs() {
 function populateYearOptions() {
   const currentYear = new Date().getFullYear();
   const selectedYear = Number((state.month || "").slice(0, 4)) || currentYear;
-  const startYear = Math.min(selectedYear, currentYear) - 1;
-  const endYear = Math.max(selectedYear, currentYear) + 3;
+  const startYear = Math.min(selectedYear, currentYear);
+  const endYear = Math.max(selectedYear, currentYear + 8);
   els.yearInput.innerHTML = "";
   for (let year = startYear; year <= endYear; year += 1) {
     const option = document.createElement("option");
@@ -737,7 +740,7 @@ function drawCalendarTemplate(ctx, width, height) {
   const calendarHeight = height * (denseCalendar ? 0.70 : 0.54);
   const cellH = Math.min(calendarHeight / rows, width * (denseCalendar ? 0.22 : 0.125));
 
-  ctx.font = boldFont(width * 0.023);
+  ctx.font = boldFont(width * 0.026);
   ctx.fillStyle = state.contentColor;
   weekdayNames.forEach((name, index) => {
     ctx.textAlign = "center";
@@ -752,30 +755,29 @@ function drawCalendarTemplate(ctx, width, height) {
     const y = startY + row * cellH;
     const date = toDateKey(year, month, day);
     const slots = grouped[date] || [];
-    const isClosed = day > state.cutoff || state.excludes.includes(date);
+    const isRestDay = !slots.length && (day > state.cutoff || state.excludes.includes(date));
 
     if (!["lineOnly", "noFill"].includes(state.dateFrameStyle)) {
-      ctx.fillStyle = slots.length ? "rgba(255,255,255,0.84)" : "rgba(255,255,255,0.42)";
-      if (isClosed) ctx.fillStyle = "rgba(36, 33, 31, 0.055)";
+      ctx.fillStyle = slots.length ? "rgba(255,255,255,0.86)" : "rgba(255,255,255,0.42)";
       roundRect(ctx, x + 5, y + 5, cellW - 10, cellH - 10, 14);
       ctx.fill();
     }
     drawDateFrame(ctx, x + 5, y + 5, cellW - 10, cellH - 10, 14);
 
-    ctx.fillStyle = isClosed ? "#b2aaa2" : state.contentColor;
+    ctx.fillStyle = state.contentColor;
     ctx.textAlign = "left";
-    ctx.font = boldFont(width * 0.027);
-    ctx.fillText(String(day), x + 18, y + 16);
+    ctx.font = boldFont(width * 0.031);
+    ctx.fillText(String(day), x + 18, y + 19);
 
     const open = slots.filter((slot) => slot.status === "open").map((slot) => slot.time);
     const full = slots.filter((slot) => slot.status === "full").length;
     drawCalendarCellTimes(ctx, {
       x: x + 18,
-      y: y + 52,
+      y: y + 58,
       width: cellW - 28,
-      height: cellH - 62,
+      height: cellH - 70,
       times: open,
-      fallback: full ? "已滿" : isClosed ? "休" : "",
+      fallback: full ? "已滿" : isRestDay ? "休" : "",
       canvasWidth: width,
     });
   }
@@ -788,8 +790,8 @@ function drawCalendarCellTimes(ctx, options) {
   ctx.fillStyle = times.length ? state.contentColor : "#8b827a";
 
   if (!times.length) {
-    ctx.font = boldFont(canvasWidth * 0.019);
-    wrapLines(ctx, fallback, x, y, width, canvasWidth * 0.027 * state.lineGap, 2);
+    ctx.font = boldFont(canvasWidth * 0.022);
+    wrapLines(ctx, fallback, x, y, width, canvasWidth * 0.03 * state.lineGap, 2);
     return;
   }
 
@@ -797,9 +799,9 @@ function drawCalendarCellTimes(ctx, options) {
   const rows = Math.ceil(times.length / columns);
   const columnGap = columns > 1 ? canvasWidth * 0.006 : 0;
   const columnWidth = (width - columnGap * (columns - 1)) / columns;
-  const lineHeight = Math.max(13, Math.min(canvasWidth * 0.025, height / Math.max(1, rows)));
-  const preferredFontSize = Math.max(12, Math.min(canvasWidth * 0.019, lineHeight * 0.72));
-  const fontSize = calendarTimeFontSize(ctx, times, columnWidth, preferredFontSize, 9);
+  const lineHeight = Math.max(15, Math.min(canvasWidth * 0.029, height / Math.max(1, rows)));
+  const preferredFontSize = Math.max(13, Math.min(canvasWidth * 0.0215, lineHeight * 0.82));
+  const fontSize = calendarTimeFontSize(ctx, times, columnWidth, preferredFontSize, 10);
 
   ctx.font = boldFont(fontSize);
   ctx.textAlign = "left";
@@ -907,18 +909,26 @@ function exportPng() {
 function handleBackgroundUpload(event) {
   const file = event.target.files?.[0];
   if (!file) return;
+  backgroundLoadToken += 1;
+  const token = backgroundLoadToken;
+  state.backgroundDataUrl = "";
+  state.backgroundImage = null;
+  drawPoster();
   const reader = new FileReader();
   reader.addEventListener("load", () => {
+    if (token !== backgroundLoadToken) return;
     state.backgroundDataUrl = String(reader.result);
-    loadBackground(state.backgroundDataUrl);
+    loadBackground(state.backgroundDataUrl, token);
     saveState();
+    els.backgroundInput.value = "";
   });
   reader.readAsDataURL(file);
 }
 
-function loadBackground(dataUrl) {
+function loadBackground(dataUrl, token = ++backgroundLoadToken) {
   const image = new Image();
   image.addEventListener("load", () => {
+    if (token !== backgroundLoadToken) return;
     state.backgroundImage = image;
     drawPoster();
   });
