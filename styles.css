@@ -597,6 +597,14 @@ input[type="range"] {
   }
 
   .preview-area {
+    order: -3;
+  }
+
+  .control-panel {
+    order: -2;
+  }
+
+  .schedule-panel {
     order: -1;
   }
 

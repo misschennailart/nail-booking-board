@@ -1,9 +1,9 @@
-const CACHE_NAME = "nail-booking-board-20260529-5";
+const CACHE_NAME = "nail-booking-board-20260529-6";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=20260529-5",
-  "./app.js?v=20260529-5",
+  "./styles.css?v=20260529-6",
+  "./app.js?v=20260529-6",
   "./manifest.webmanifest",
 ];
 
