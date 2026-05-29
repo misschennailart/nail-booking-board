@@ -1,0 +1,9 @@
+{
+  "name": "美甲預約時段圖產生器",
+  "short_name": "預約時段圖",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#fffdfa",
+  "lang": "zh-Hant"
+}

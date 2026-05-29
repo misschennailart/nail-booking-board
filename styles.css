@@ -81,18 +81,19 @@ button {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(360px, 1fr) minmax(300px, 410px);
-  gap: 18px;
+  grid-template-columns: minmax(0, 780px);
+  justify-content: center;
+  gap: 16px;
   align-items: start;
 }
 
 .control-panel,
 .schedule-panel {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
-.panel-section,
+.control-panel,
 .preview-area,
 .schedule-panel {
   border: 1px solid rgba(86, 74, 65, 0.16);
@@ -101,9 +102,59 @@ button {
   box-shadow: var(--shadow);
 }
 
-.panel-section,
+.control-panel,
 .schedule-panel {
   padding: 16px;
+}
+
+.preview-area {
+  order: -2;
+}
+
+.control-panel {
+  order: -1;
+}
+
+.panel-section {
+  display: none;
+}
+
+.panel-section.active,
+.schedule-panel.active {
+  display: block;
+}
+
+.schedule-panel {
+  display: none;
+}
+
+.panel-tabs {
+  display: flex;
+  gap: 8px;
+  margin: -2px -2px 10px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.panel-tab {
+  flex: 0 0 auto;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+  padding: 0 13px;
+  white-space: nowrap;
+}
+
+.panel-tab.active {
+  border-color: rgba(223, 104, 95, 0.40);
+  background: var(--ink);
+  color: #fffefa;
 }
 
 .panel-section h2,
@@ -183,6 +234,7 @@ button {
 .ghost-action,
 .icon-action,
 .segment,
+.time-choice,
 .status-button,
 .day-action,
 .tag {
@@ -213,6 +265,12 @@ button {
   padding: 0 12px;
 }
 
+.ghost-action:disabled {
+  cursor: default;
+  opacity: 0.45;
+  transform: none;
+}
+
 .icon-action {
   background: var(--accent);
   color: white;
@@ -224,10 +282,51 @@ button {
 .ghost-action:hover,
 .icon-action:hover,
 .segment:hover,
+.time-choice:hover,
 .status-button:hover,
 .day-action:hover,
 .tag:hover {
   transform: translateY(-1px);
+}
+
+.quick-times {
+  margin-top: 12px;
+}
+
+.quick-times-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.time-choice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.compact-time-list {
+  margin-top: 8px;
+}
+
+.time-choice {
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 900;
+  padding: 0 12px;
+}
+
+.time-choice.selected {
+  border-color: rgba(223, 104, 95, 0.45);
+  background: var(--accent);
+  color: #ffffff;
 }
 
 .tag-list {
@@ -306,19 +405,9 @@ button {
 .canvas-wrap {
   display: grid;
   place-items: center;
-  min-height: 640px;
+  min-height: 620px;
   padding: 18px;
-  background:
-    linear-gradient(45deg, rgba(36, 33, 31, 0.05) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(36, 33, 31, 0.05) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, rgba(36, 33, 31, 0.05) 75%),
-    linear-gradient(-45deg, transparent 75%, rgba(36, 33, 31, 0.05) 75%);
-  background-position:
-    0 0,
-    0 10px,
-    10px -10px,
-    -10px 0;
-  background-size: 20px 20px;
+  background: #ffffff;
 }
 
 canvas {
@@ -336,6 +425,15 @@ canvas {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.6;
+}
+
+.save-status {
+  min-height: 20px;
+  margin: 10px 0 0;
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.5;
 }
 
 .toggle-field {
@@ -471,11 +569,11 @@ input[type="range"] {
 
 @media (max-width: 1180px) {
   .layout {
-    grid-template-columns: minmax(280px, 360px) 1fr;
+    grid-template-columns: minmax(0, 760px);
   }
 
   .schedule-panel {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 }
 
@@ -495,6 +593,7 @@ input[type="range"] {
 
   .layout {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .preview-area {
@@ -502,11 +601,50 @@ input[type="range"] {
   }
 
   .canvas-wrap {
-    min-height: 420px;
+    min-height: 0;
+    padding: 10px;
   }
 
   canvas {
-    width: min(100%, 330px);
+    width: min(100%, 340px);
+    max-height: 58vh;
+  }
+
+  .preview-toolbar {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .preview-toolbar .eyebrow {
+    display: none;
+  }
+
+  .summary-pill {
+    font-size: 11px;
+    padding: 7px 9px;
+  }
+
+  .control-panel,
+  .schedule-panel {
+    padding: 12px;
+  }
+
+  .panel-tabs {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .panel-tab {
+    min-height: 42px;
+    padding: 0 12px;
+  }
+
+  .field input,
+  .field select,
+  .primary-action,
+  .ghost-action,
+  .icon-action {
+    min-height: 46px;
   }
 
   .extra-form {

@@ -3,8 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="預約時段圖" />
+    <meta name="theme-color" content="#fffdfa" />
     <title>美甲預約時段圖產生器</title>
-    <link rel="stylesheet" href="styles.css?v=20260526-2" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css?v=20260529-5" />
   </head>
   <body>
     <main class="app-shell">
@@ -19,7 +23,16 @@
 
         <div class="layout">
           <aside class="control-panel" aria-label="編輯設定">
-            <section class="panel-section">
+            <nav class="panel-tabs" aria-label="設定分類">
+              <button class="panel-tab active" data-panel-tab="quick" type="button">快速產生</button>
+              <button class="panel-tab" data-panel-tab="dates" type="button">排除加開</button>
+              <button class="panel-tab" data-panel-tab="content" type="button">文字</button>
+              <button class="panel-tab" data-panel-tab="style" type="button">外觀</button>
+              <button class="panel-tab" data-panel-tab="save" type="button">儲存</button>
+              <button class="panel-tab" data-panel-tab="schedule" type="button">時段微調</button>
+            </nav>
+
+            <section class="panel-section active" data-panel="quick">
               <div class="section-heading">
                 <h2>快速產生</h2>
                 <button class="ghost-action" id="generateBtn" type="button">產生時段</button>
@@ -53,11 +66,13 @@
                 <span>平日時段</span>
                 <input id="weekdayTimesInput" type="text" value="18:00" placeholder="可輸入多個，例如：11:00, 14:00, 18:00, 20:00" />
               </label>
+              <div class="time-choice-list compact-time-list" id="weekdayQuickTimes"></div>
 
               <label class="field">
                 <span>假日時段</span>
                 <input id="weekendTimesInput" type="text" value="10:00, 13:00, 17:00" placeholder="可輸入多個，以逗號或空格分隔" />
               </label>
+              <div class="time-choice-list compact-time-list" id="weekendQuickTimes"></div>
 
               <label class="field compact-field">
                 <span>每月接客到</span>
@@ -66,7 +81,7 @@
               </label>
             </section>
 
-            <section class="panel-section">
+            <section class="panel-section" data-panel="dates">
               <div class="section-heading">
                 <h2>排除與加開</h2>
                 <button class="ghost-action" id="generateBtnSecondary" type="button">產生時段</button>
@@ -92,10 +107,17 @@
                 </label>
                 <button id="addExtraBtn" class="icon-action" type="button" aria-label="加入加開時段">+</button>
               </div>
+              <div class="quick-times">
+                <div class="quick-times-head">
+                  <span>常用時段</span>
+                  <button id="addSelectedExtraBtn" class="ghost-action" type="button">加入選取</button>
+                </div>
+                <div class="time-choice-list" id="quickExtraTimes"></div>
+              </div>
               <div class="tag-list" id="extraList"></div>
             </section>
 
-            <section class="panel-section">
+            <section class="panel-section" data-panel="content">
               <h2>公告內容</h2>
               <label class="field">
                 <span>標題</span>
@@ -159,6 +181,15 @@
                 <span>備注大小</span>
                 <span class="range-control"><small>小</small><input id="noteSizeInput" type="range" min="0.75" max="1.35" step="0.05" value="1" /><small>大</small></span>
               </label>
+            </section>
+
+            <section class="panel-section" data-panel="style">
+              <h2>外觀設定</h2>
+              <div class="segmented" role="radiogroup" aria-label="顯示方式">
+                <button class="segment active" data-template="calendar" type="button">日曆</button>
+                <button class="segment" data-template="cards" type="button">橫排</button>
+              </div>
+
               <label class="field">
                 <span>背景圖</span>
                 <input id="backgroundInput" type="file" accept="image/*" />
@@ -166,16 +197,8 @@
 
               <label class="field">
                 <span>背景圖透明度</span>
-                <input id="backgroundOpacityInput" type="range" min="0.15" max="1" step="0.05" value="0.45" />
+                <span class="range-control"><small>透明</small><input id="backgroundOpacityInput" type="range" min="0" max="1" step="0.05" value="1" /><small>不透</small></span>
               </label>
-            </section>
-
-            <section class="panel-section">
-              <h2>版型</h2>
-              <div class="segmented" role="radiogroup" aria-label="版型">
-                <button class="segment active" data-template="calendar" type="button">日曆</button>
-                <button class="segment" data-template="cards" type="button">橫排</button>
-              </div>
 
               <label class="field">
                 <span>標題及備注顏色</span>
@@ -184,6 +207,14 @@
               <label class="field">
                 <span>內容顏色</span>
                 <input id="contentColorInput" type="color" value="#5f5750" />
+              </label>
+              <label class="field">
+                <span>休 / 已滿文字</span>
+                <select id="statusTextToneInput">
+                  <option value="soft">柔灰</option>
+                  <option value="content">同內容色</option>
+                  <option value="title">同標題色</option>
+                </select>
               </label>
 
               <label class="toggle-field">
@@ -214,9 +245,13 @@
                 <span>行距</span>
                 <input id="lineGapInput" type="range" min="0.85" max="1.35" step="0.05" value="1" />
               </label>
+              <label class="field">
+                <span>日曆整體比例</span>
+                <span class="range-control"><small>小</small><input id="calendarContentScaleInput" type="range" min="0.75" max="1.15" step="0.05" value="1" /><small>大</small></span>
+              </label>
             </section>
 
-            <section class="panel-section">
+            <section class="panel-section" data-panel="save">
               <div class="section-heading">
                 <h2>儲存設計</h2>
                 <button class="ghost-action" id="saveDesignBtn" type="button">儲存</button>
@@ -225,6 +260,7 @@
                 <span>已儲存</span>
                 <select id="savedDesignsInput"></select>
               </label>
+              <p class="save-status" id="saveDesignStatus" role="status"></p>
               <button class="ghost-action full-action" id="loadDesignBtn" type="button">載入設計</button>
               <button class="ghost-action full-action" id="deleteDesignBtn" type="button">刪除設計</button>
             </section>
@@ -243,7 +279,7 @@
             </div>
           </section>
 
-          <section class="schedule-panel" aria-label="時段微調">
+          <section class="schedule-panel" data-panel="schedule" aria-label="時段微調">
             <div class="section-heading">
               <h2>時段微調</h2>
               <button class="ghost-action" id="clearBtn" type="button">清空</button>
@@ -255,6 +291,6 @@
       </section>
     </main>
 
-    <script src="app.js?v=20260526-2"></script>
+    <script src="app.js?v=20260529-5"></script>
   </body>
 </html>

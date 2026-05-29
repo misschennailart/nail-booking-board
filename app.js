@@ -16,6 +16,7 @@ const state = {
   accent: "#df685f",
   titleColor: "#24211f",
   contentColor: "#5f5750",
+  statusTextTone: "soft",
   titleX: 11,
   titleY: 11,
   titleSize: 1,
@@ -28,13 +29,15 @@ const state = {
   showGrid: false,
   dateFrameStyle: "none",
   lineGap: 1,
+  calendarContentScale: 1,
   cardsAlign: "right",
-  backgroundOpacity: 0.45,
+  backgroundOpacity: 1,
   backgroundDataUrl: "",
   backgroundImage: null,
 };
 let loadedSavedState = false;
 let backgroundLoadToken = 0;
+const selectedExtraTimes = new Set();
 
 const els = {};
 const weekdayNames = ["日", "一", "二", "三", "四", "五", "六"];
@@ -61,8 +64,10 @@ document.addEventListener("DOMContentLoaded", () => {
   loadState();
   hydrateInputs();
   bindEvents();
+  bindPanelTabs();
   if (!state.slots.length) generateSlots();
   render();
+  registerServiceWorker();
 });
 
 function bindElements() {
@@ -71,6 +76,8 @@ function bindElements() {
     "monthSelectInput",
     "weekdayTimesInput",
     "weekendTimesInput",
+    "weekdayQuickTimes",
+    "weekendQuickTimes",
     "cutoffInput",
     "generateBtnSecondary",
     "excludeDateInput",
@@ -79,6 +86,8 @@ function bindElements() {
     "extraDateInput",
     "extraTimeInput",
     "addExtraBtn",
+    "addSelectedExtraBtn",
+    "quickExtraTimes",
     "extraList",
     "noteInput",
     "addNoteBtn",
@@ -99,8 +108,10 @@ function bindElements() {
     "backgroundOpacityInput",
     "titleColorInput",
     "contentColorInput",
+    "statusTextToneInput",
     "frameInput",
     "dateFrameStyleInput",
+    "calendarContentScaleInput",
     "cardsAlignInput",
     "lineGapInput",
     "generateBtn",
@@ -108,6 +119,7 @@ function bindElements() {
     "clearBtn",
     "saveDesignBtn",
     "savedDesignsInput",
+    "saveDesignStatus",
     "loadDesignBtn",
     "deleteDesignBtn",
     "scheduleList",
@@ -163,7 +175,9 @@ function bindEvents() {
     "brandInput",
     "titleColorInput",
     "contentColorInput",
+    "statusTextToneInput",
     "lineGapInput",
+    "calendarContentScaleInput",
     "cardsAlignInput",
     "dateFrameStyleInput",
     "backgroundOpacityInput",
@@ -200,6 +214,8 @@ function bindEventsContinued() {
         els.titleInput.value = state.title;
       }
       saveState();
+      renderRuleTimeChoices();
+      renderQuickExtraTimes();
       drawPoster();
     });
   });
@@ -218,11 +234,13 @@ function bindEventsContinued() {
     const date = els.extraDateInput.value;
     const time = els.extraTimeInput.value;
     if (!date || !time) return;
-    state.extras.push({ date, time });
-    els.extraDateInput.value = "";
-    generateSlots();
-    saveState();
-    render();
+    addExtraTimes(date, [time]);
+  });
+
+  els.addSelectedExtraBtn.addEventListener("click", () => {
+    const date = els.extraDateInput.value;
+    if (!date || !selectedExtraTimes.size) return;
+    addExtraTimes(date, [...selectedExtraTimes]);
   });
 
   els.addNoteBtn.addEventListener("click", () => {
@@ -249,6 +267,32 @@ function bindEventsContinued() {
   });
 }
 
+function bindPanelTabs() {
+  const tabs = [...document.querySelectorAll("[data-panel-tab]")];
+  if (!tabs.length) return;
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      setActivePanel(tab.dataset.panelTab);
+    });
+  });
+  setActivePanel(tabs[0].dataset.panelTab);
+}
+
+function setActivePanel(panelName) {
+  document.querySelectorAll("[data-panel-tab]").forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.panelTab === panelName);
+  });
+  document.querySelectorAll("[data-panel]").forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.panel === panelName);
+  });
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  if (!["https:", "http:"].includes(location.protocol)) return;
+  navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+}
+
 function updateAppearanceFromInputs(event) {
   const rawTitle = els.titleInput.value;
   const wasAutoTitle = rawTitle.trim() !== "" && isAutoMonthTitle(rawTitle);
@@ -270,13 +314,15 @@ function updateAppearanceFromInputs(event) {
   state.brand = els.brandInput.value.trim();
   state.titleColor = els.titleColorInput.value;
   state.contentColor = els.contentColorInput.value;
+  state.statusTextTone = els.statusTextToneInput.value;
   state.accent = state.contentColor;
   state.size = "story";
   state.lineGap = Number(els.lineGapInput.value) || 1;
+  state.calendarContentScale = Number(els.calendarContentScaleInput.value) || 1;
   state.cardsAlign = els.cardsAlignInput.value;
   state.dateFrameStyle = els.dateFrameStyleInput.value;
   state.showGrid = state.dateFrameStyle !== "none";
-  state.backgroundOpacity = Number(els.backgroundOpacityInput.value) || 0.45;
+  state.backgroundOpacity = clamp(Number(els.backgroundOpacityInput.value), 0, 1);
   resizeCanvas();
   saveState();
   drawPoster();
@@ -313,6 +359,7 @@ function hydrateInputs() {
   els.brandInput.value = state.brand;
   els.titleColorInput.value = state.titleColor;
   els.contentColorInput.value = state.contentColor;
+  els.statusTextToneInput.value = state.statusTextTone || "soft";
   els.frameInput.checked = state.showFrame;
   if (!state.dateFrameStyle) {
     state.dateFrameStyle = state.showGrid ? "outline" : "none";
@@ -320,6 +367,7 @@ function hydrateInputs() {
   if (state.dateFrameStyle === "chip") state.dateFrameStyle = "outline";
   els.dateFrameStyleInput.value = state.dateFrameStyle;
   els.lineGapInput.value = state.lineGap;
+  els.calendarContentScaleInput.value = state.calendarContentScale || 1;
   els.cardsAlignInput.value = state.cardsAlign;
   els.backgroundOpacityInput.value = state.backgroundOpacity;
   document.querySelectorAll("[data-template]").forEach((button) => {
@@ -330,6 +378,98 @@ function hydrateInputs() {
     loadBackground(state.backgroundDataUrl);
   }
   renderSavedDesigns();
+  renderRuleTimeChoices();
+  renderQuickExtraTimes();
+}
+
+function renderRuleTimeChoices() {
+  renderTimeChoiceGroup("weekday", els.weekdayQuickTimes, els.weekdayTimesInput);
+  renderTimeChoiceGroup("weekend", els.weekendQuickTimes, els.weekendTimesInput);
+}
+
+function renderTimeChoiceGroup(kind, container, input) {
+  if (!container || !input) return;
+  const selected = new Set(parseTimes(input.value));
+  const choices = quickRuleTimes(selected);
+  container.innerHTML = "";
+  choices.forEach((time) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "time-choice";
+    button.classList.toggle("selected", selected.has(time));
+    button.textContent = time;
+    button.setAttribute("aria-pressed", selected.has(time) ? "true" : "false");
+    button.addEventListener("click", () => {
+      toggleRuleTime(input, time);
+      readRuleInputs();
+      saveState();
+      renderRuleTimeChoices();
+      renderQuickExtraTimes();
+      drawPoster();
+    });
+    container.appendChild(button);
+  });
+}
+
+function toggleRuleTime(input, time) {
+  const times = parseTimes(input.value);
+  const next = times.includes(time) ? times.filter((item) => item !== time) : [...times, time].sort();
+  input.value = next.join(", ");
+}
+
+function quickRuleTimes(selected = new Set()) {
+  return [...new Set([...selected, "10:00", "11:00", "13:00", "14:00", "17:00", "18:00", "20:00"])]
+    .map(normalizeTime)
+    .filter(Boolean)
+    .sort();
+}
+
+function addExtraTimes(date, times) {
+  const normalizedTimes = times.map(normalizeTime).filter(Boolean);
+  normalizedTimes.forEach((time) => {
+    if (!state.extras.some((extra) => extra.date === date && extra.time === time)) {
+      state.extras.push({ date, time });
+    }
+  });
+  selectedExtraTimes.clear();
+  generateSlots();
+  saveState();
+  render();
+}
+
+function renderQuickExtraTimes() {
+  if (!els.quickExtraTimes) return;
+  const times = quickExtraTimes();
+  selectedExtraTimes.forEach((time) => {
+    if (!times.includes(time)) selectedExtraTimes.delete(time);
+  });
+  els.quickExtraTimes.innerHTML = "";
+  times.forEach((time) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "time-choice";
+    button.classList.toggle("selected", selectedExtraTimes.has(time));
+    button.textContent = time;
+    button.addEventListener("click", () => {
+      if (selectedExtraTimes.has(time)) {
+        selectedExtraTimes.delete(time);
+      } else {
+        selectedExtraTimes.add(time);
+      }
+      renderQuickExtraTimes();
+    });
+    els.quickExtraTimes.appendChild(button);
+  });
+  if (els.addSelectedExtraBtn) {
+    els.addSelectedExtraBtn.disabled = !selectedExtraTimes.size;
+  }
+}
+
+function quickExtraTimes() {
+  return [...new Set([...state.weekdayTimes, ...state.weekendTimes, "10:00", "13:00", "17:00", "18:00", "20:00"])]
+    .map(normalizeTime)
+    .filter(Boolean)
+    .sort();
 }
 
 function populateYearOptions() {
@@ -413,6 +553,7 @@ function createSlot(date, time, status = "open", extra = false) {
 
 function render() {
   renderLists();
+  renderQuickExtraTimes();
   renderSchedule();
   updateSummary();
   drawPoster();
@@ -426,8 +567,9 @@ function renderLists() {
     .forEach((date) => {
       els.excludeList.appendChild(createTag(formatDateShort(date), () => {
         state.excludes = state.excludes.filter((item) => item !== date);
+        generateSlots();
         saveState();
-        renderLists();
+        render();
       }));
     });
 
@@ -440,8 +582,9 @@ function renderLists() {
         state.extras = state.extras.filter(
           (item) => !(item.date === extra.date && item.time === extra.time),
         );
+        generateSlots();
         saveState();
-        renderLists();
+        render();
       }));
     });
 
@@ -605,31 +748,13 @@ function drawBackground(ctx, width, height) {
     ctx.globalAlpha = state.backgroundOpacity;
     drawCoverImage(ctx, state.backgroundImage, 0, 0, width, height);
     ctx.restore();
-    ctx.fillStyle = "rgba(255, 253, 250, 0.42)";
-    ctx.fillRect(0, 0, width, height);
     return;
   }
 }
 
 function drawBaseBackground(ctx, width, height) {
-  const gradient = ctx.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, "#fffaf4");
-  gradient.addColorStop(0.45, "#f7eee9");
-  gradient.addColorStop(1, "#e5f0ec");
-  ctx.fillStyle = gradient;
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
-
-  ctx.fillStyle = "rgba(223, 104, 95, 0.13)";
-  ctx.beginPath();
-  ctx.arc(width * 0.81, height * 0.18, width * 0.20, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "rgba(40, 124, 116, 0.12)";
-  ctx.beginPath();
-  ctx.arc(width * 0.20, height * 0.76, width * 0.21, 0, Math.PI * 2);
-  ctx.fill();
-
-  drawPresetNailArt(ctx, width, height);
 }
 
 function drawPresetNailArt(ctx, width, height) {
@@ -715,7 +840,7 @@ function drawFooter(ctx, width, height) {
     fitText(ctx, note, width * (state.noteX / 100), y, width * 0.76, normalFont(width * 0.025 * state.noteSize), "center", "middle");
   });
 
-  ctx.fillStyle = state.contentColor;
+  ctx.fillStyle = state.titleColor;
   ctx.font = boldFont(width * 0.033);
   ctx.fillText(state.brand || "@xiang.nail", width * 0.5, bottom);
   ctx.textAlign = "left";
@@ -730,21 +855,47 @@ function drawCalendarTemplate(ctx, width, height) {
     ...Object.values(grouped).map((slots) => slots.filter((slot) => slot.status === "open").length),
   );
   const denseCalendar = maxTimesInDay > 3;
-  const startY = height * (denseCalendar ? 0.245 : 0.295);
-  const left = width * 0.105;
-  const gridW = width * (denseCalendar ? 0.84 : 0.79);
+  const contentScale = clamp(Number(state.calendarContentScale) || 1, 0.75, 1.15);
+  const startY = height * (denseCalendar ? 0.215 : 0.295);
+  const left = width * (denseCalendar ? 0.08 : 0.095);
+  const gridW = width * (denseCalendar ? 0.88 : 0.81);
   const cellW = gridW / 7;
   const days = new Date(year, month, 0).getDate();
   const first = new Date(year, month - 1, 1).getDay();
   const rows = Math.ceil((first + days) / 7);
-  const calendarHeight = height * (denseCalendar ? 0.70 : 0.54);
-  const cellH = Math.min(calendarHeight / rows, width * (denseCalendar ? 0.22 : 0.125));
+  const bottomLimit = height * (denseCalendar ? 0.845 : 0.835);
+  const availableCellH = (bottomLimit - startY) / rows;
+  const baseCellH = width * (denseCalendar ? 0.16 : 0.135);
+  const requiredCellH =
+    width * 0.028 +
+    width * 0.052 * contentScale +
+    maxTimesInDay * width * 0.032 * contentScale;
+  const cellH = Math.min(availableCellH, Math.max(baseCellH, requiredCellH));
+  const autoScale = Math.min(1, cellH / Math.max(requiredCellH, 1));
+  const scale = clamp(contentScale * autoScale, 0.58, 1.15);
+  const sharedTimeX = width * 0.017 * scale;
+  const sharedTimeY = width * 0.055 * scale;
+  const sharedTimeWidth = cellW - width * 0.027 * scale;
+  const sharedTimeHeight = cellH - sharedTimeY - width * 0.012 * scale;
+  const sharedTimeRows = maxTimesInDay;
+  const sharedLineHeight = Math.max(
+    9,
+    Math.min(width * 0.031 * scale, sharedTimeHeight / Math.max(1, sharedTimeRows)),
+  );
+  const sharedPreferredFontSize = Math.max(8, Math.min(width * 0.022 * scale, sharedLineHeight * 0.82));
+  const sharedTimeFontSize = calendarTimeFontSize(
+    ctx,
+    Object.values(grouped).flatMap((slots) => slots.filter((slot) => slot.status === "open").map((slot) => slot.time)),
+    sharedTimeWidth,
+    sharedPreferredFontSize,
+    8,
+  );
 
-  ctx.font = boldFont(width * 0.026);
+  ctx.font = boldFont(width * 0.026 * scale);
   ctx.fillStyle = state.contentColor;
   weekdayNames.forEach((name, index) => {
     ctx.textAlign = "center";
-    ctx.fillText(name, left + cellW * index + cellW / 2, startY - 38);
+    ctx.fillText(name, left + cellW * index + cellW / 2, startY - width * 0.035 * scale);
   });
 
   for (let day = 1; day <= days; day += 1) {
@@ -766,19 +917,22 @@ function drawCalendarTemplate(ctx, width, height) {
 
     ctx.fillStyle = state.contentColor;
     ctx.textAlign = "left";
-    ctx.font = boldFont(width * 0.031);
-    ctx.fillText(String(day), x + 18, y + 19);
+    ctx.font = boldFont(width * 0.031 * scale);
+    ctx.fillText(String(day), x + width * 0.017 * scale, y + width * 0.019 * scale);
 
     const open = slots.filter((slot) => slot.status === "open").map((slot) => slot.time);
     const full = slots.filter((slot) => slot.status === "full").length;
     drawCalendarCellTimes(ctx, {
-      x: x + 18,
-      y: y + 58,
-      width: cellW - 28,
-      height: cellH - 70,
+      x: x + sharedTimeX,
+      y: y + sharedTimeY,
+      width: sharedTimeWidth,
+      height: sharedTimeHeight,
       times: open,
       fallback: full ? "已滿" : isRestDay ? "休" : "",
       canvasWidth: width,
+      scale,
+      lineHeight: sharedLineHeight,
+      fontSize: sharedTimeFontSize,
     });
   }
 
@@ -786,22 +940,22 @@ function drawCalendarTemplate(ctx, width, height) {
 }
 
 function drawCalendarCellTimes(ctx, options) {
-  const { x, y, width, height, times, fallback, canvasWidth } = options;
-  ctx.fillStyle = times.length ? state.contentColor : "#8b827a";
+  const { x, y, width, height, times, fallback, canvasWidth, scale = 1, lineHeight: fixedLineHeight, fontSize: fixedFontSize } = options;
+  ctx.fillStyle = times.length ? state.contentColor : statusTextColor();
 
   if (!times.length) {
-    ctx.font = boldFont(canvasWidth * 0.022);
-    wrapLines(ctx, fallback, x, y, width, canvasWidth * 0.03 * state.lineGap, 2);
+    ctx.font = boldFont(canvasWidth * 0.022 * scale);
+    wrapLines(ctx, fallback, x, y, width, canvasWidth * 0.03 * scale * state.lineGap, 2);
     return;
   }
 
-  const columns = times.length > 4 ? 2 : 1;
+  const columns = 1;
   const rows = Math.ceil(times.length / columns);
   const columnGap = columns > 1 ? canvasWidth * 0.006 : 0;
   const columnWidth = (width - columnGap * (columns - 1)) / columns;
-  const lineHeight = Math.max(15, Math.min(canvasWidth * 0.029, height / Math.max(1, rows)));
-  const preferredFontSize = Math.max(13, Math.min(canvasWidth * 0.0215, lineHeight * 0.82));
-  const fontSize = calendarTimeFontSize(ctx, times, columnWidth, preferredFontSize, 10);
+  const lineHeight = fixedLineHeight || Math.max(9, Math.min(canvasWidth * 0.031 * scale, height / Math.max(1, rows)));
+  const preferredFontSize = Math.max(8, Math.min(canvasWidth * 0.022 * scale, lineHeight * 0.82));
+  const fontSize = fixedFontSize || calendarTimeFontSize(ctx, times, columnWidth, preferredFontSize, 8);
 
   ctx.font = boldFont(fontSize);
   ctx.textAlign = "left";
@@ -825,6 +979,12 @@ function calendarTimeFontSize(ctx, times, maxWidth, preferredSize, minSize) {
   return minSize;
 }
 
+function statusTextColor() {
+  if (state.statusTextTone === "content") return state.contentColor;
+  if (state.statusTextTone === "title") return state.titleColor;
+  return "#8b827a";
+}
+
 function drawCardsTemplate(ctx, width, height) {
   const openGroups = Object.entries(groupSlots(state.slots))
     .map(([date, slots]) => [date, slots.filter((slot) => slot.status === "open")])
@@ -838,10 +998,10 @@ function drawCardsTemplate(ctx, width, height) {
   const span = availableH * (0.58 + lineGapProgress * 0.42);
   const rowStep = rowCount > 1 ? span / (rowCount - 1) : 0;
   const rowH = Math.min(width * 0.064, rowStep ? rowStep * 0.78 : width * 0.064);
-  const dateFont = clamp(rowH * 0.30, width * 0.018, width * 0.028);
-  const timeFont = clamp(rowH * 0.34, width * 0.020, width * 0.032);
+  const dateFont = clamp(rowH * 0.42, width * 0.025, width * 0.036);
+  const timeFont = clamp(rowH * 0.36, width * 0.022, width * 0.034);
   const dateX = x;
-  const timeLeftX = x + rowW * 0.30;
+  const timeLeftX = x + rowW * 0.24;
   const timeRightX = x + rowW;
 
   openGroups.forEach(([date, slots], index) => {
@@ -889,21 +1049,36 @@ function drawEmptyPosterMessage(ctx, width, height, message) {
   ctx.fillStyle = "rgba(255,255,255,0.84)";
   roundRect(ctx, width * 0.17, height * 0.43, width * 0.66, width * 0.18, 28);
   ctx.fill();
-  ctx.fillStyle = "#24211f";
+  ctx.fillStyle = statusTextColor();
   fitText(ctx, message, width * 0.5, height * 0.485, width * 0.56, boldFont(width * 0.05), "center", "middle");
 }
 
 function exportPng() {
   drawPoster();
-  els.posterCanvas.toBlob((blob) => {
+  els.posterCanvas.toBlob(async (blob) => {
     if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `booking-board-${state.month || "month"}.png`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const filename = `booking-board-${state.month || "month"}.png`;
+    const file = new File([blob], filename, { type: "image/png" });
+    if (navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: "預約時段圖" });
+        return;
+      } catch {
+        // Fall back to a normal download when sharing is cancelled or unavailable.
+      }
+    }
+    downloadBlob(blob, filename);
   }, "image/png");
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.rel = "noopener";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function handleBackgroundUpload(event) {
@@ -917,12 +1092,39 @@ function handleBackgroundUpload(event) {
   const reader = new FileReader();
   reader.addEventListener("load", () => {
     if (token !== backgroundLoadToken) return;
-    state.backgroundDataUrl = String(reader.result);
-    loadBackground(state.backgroundDataUrl, token);
-    saveState();
-    els.backgroundInput.value = "";
+    prepareBackgroundDataUrl(String(reader.result), (preparedDataUrl) => {
+      if (token !== backgroundLoadToken) return;
+      state.backgroundDataUrl = preparedDataUrl;
+      loadBackground(state.backgroundDataUrl, token);
+      saveState();
+      els.backgroundInput.value = "";
+    });
   });
   reader.readAsDataURL(file);
+}
+
+function prepareBackgroundDataUrl(dataUrl, callback) {
+  const image = new Image();
+  image.addEventListener("load", () => {
+    try {
+      callback(compressBackgroundDataUrl(image));
+    } catch {
+      callback(dataUrl);
+    }
+  });
+  image.addEventListener("error", () => callback(dataUrl));
+  image.src = dataUrl;
+}
+
+function compressBackgroundDataUrl(image) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1080;
+  canvas.height = 1920;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  drawCoverImage(ctx, image, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", 0.88);
 }
 
 function loadBackground(dataUrl, token = ++backgroundLoadToken) {
@@ -1038,6 +1240,7 @@ function getDesignSnapshots() {
 }
 
 function saveDesignSnapshot() {
+  setSaveDesignStatus("");
   const snapshots = getDesignSnapshots();
   const baseName = designSnapshotName();
   const snapshot = {
@@ -1046,9 +1249,32 @@ function saveDesignSnapshot() {
     updatedAt: new Date().toISOString(),
     data: { ...state, backgroundImage: null },
   };
-  snapshots.unshift(snapshot);
-  localStorage.setItem("nail-booking-board-designs", JSON.stringify(snapshots.slice(0, 20)));
+  const nextSnapshots = [snapshot, ...snapshots].slice(0, 20);
+  if (!persistDesignSnapshots(nextSnapshots)) {
+    snapshot.data = { ...snapshot.data, backgroundDataUrl: "" };
+    if (!persistDesignSnapshots([snapshot, ...snapshots].slice(0, 20))) {
+      setSaveDesignStatus("儲存失敗：手機空間不足，請先刪除舊設計或換一張較小的背景圖。");
+      return;
+    }
+    setSaveDesignStatus("已儲存設定；因手機空間不足，這次沒有一起保存背景圖。");
+  } else {
+    setSaveDesignStatus("已儲存設計。");
+  }
   renderSavedDesigns(snapshot.id);
+}
+
+function setSaveDesignStatus(message) {
+  if (!els.saveDesignStatus) return;
+  els.saveDesignStatus.textContent = message;
+}
+
+function persistDesignSnapshots(snapshots) {
+  try {
+    localStorage.setItem("nail-booking-board-designs", JSON.stringify(snapshots));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function uniqueSnapshotName(baseName, snapshots) {
@@ -1089,14 +1315,16 @@ function loadSelectedDesign() {
   saveState();
   hydrateInputs();
   render();
+  setSaveDesignStatus("已載入設計。");
 }
 
 function deleteSelectedDesign() {
   const id = els.savedDesignsInput.value;
   if (!id) return;
   const snapshots = getDesignSnapshots().filter((item) => item.id !== id);
-  localStorage.setItem("nail-booking-board-designs", JSON.stringify(snapshots));
+  persistDesignSnapshots(snapshots);
   renderSavedDesigns();
+  setSaveDesignStatus("已刪除設計。");
 }
 
 function saveState() {
@@ -1105,7 +1333,11 @@ function saveState() {
     localStorage.setItem("nail-booking-board", JSON.stringify(saved));
   } catch {
     const lightweight = { ...saved, backgroundDataUrl: "" };
-    localStorage.setItem("nail-booking-board", JSON.stringify(lightweight));
+    try {
+      localStorage.setItem("nail-booking-board", JSON.stringify(lightweight));
+    } catch {
+      setSaveDesignStatus("手機暫存空間不足，部分設定可能無法自動保存。");
+    }
   }
 }
 
@@ -1121,6 +1353,9 @@ function loadState() {
     state.titleFormat = state.titleFormat || "yearMonth";
     state.titleSize = Number(state.titleSize) || 1;
     state.noteSize = Number(state.noteSize) || 1;
+    state.calendarContentScale = Number(state.calendarContentScale) || Number(state.calendarCellScale) || 1;
+    state.backgroundOpacity = state.backgroundOpacity === undefined ? 1 : clamp(Number(state.backgroundOpacity), 0, 1);
+    state.statusTextTone = state.statusTextTone || "soft";
     state.noteX = Number(state.noteX) || 50;
     state.noteY = Number(state.noteY) || 85;
     state.contentColor =
