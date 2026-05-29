@@ -831,18 +831,23 @@ function drawHeader(ctx, width, height) {
 
 function drawFooter(ctx, width, height) {
   const bottom = height * 0.91;
+  const noteX = clamp(Number(state.noteX) || 50, 0, 100);
+  const noteCenterX = width * (noteX / 100);
+  const brandCenterX = width * 0.5;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = state.titleColor;
   ctx.font = normalFont(width * 0.025 * state.noteSize);
   state.notes.forEach((note, index, notes) => {
     const y = height * (state.noteY / 100) - width * 0.052 * state.noteSize * (notes.length - index - 1);
-    fitText(ctx, note, width * (state.noteX / 100), y, width * 0.76, normalFont(width * 0.025 * state.noteSize), "center", "middle");
+    fitText(ctx, note, noteCenterX, y, width * 0.76, normalFont(width * 0.025 * state.noteSize), "center", "middle");
   });
 
-  ctx.fillStyle = state.titleColor;
-  ctx.font = boldFont(width * 0.033);
-  ctx.fillText(state.brand || "@xiang.nail", width * 0.5, bottom);
+  if (state.brand) {
+    ctx.fillStyle = state.titleColor;
+    ctx.font = boldFont(width * 0.033);
+    ctx.fillText(state.brand, brandCenterX, bottom);
+  }
   ctx.textAlign = "left";
 }
 
