@@ -1061,7 +1061,7 @@ function exportPng() {
     const file = new File([blob], filename, { type: "image/png" });
     if (navigator.canShare?.({ files: [file] })) {
       try {
-        await navigator.share({ files: [file], title: "預約時段圖" });
+        await navigator.share({ files: [file], title: "時段圖生產器" });
         return;
       } catch {
         // Fall back to a normal download when sharing is cancelled or unavailable.

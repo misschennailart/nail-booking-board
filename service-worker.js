@@ -1,10 +1,13 @@
-const CACHE_NAME = "nail-booking-board-20260529-6";
+const CACHE_NAME = "nail-booking-board-20260529-9";
 const ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=20260529-6",
-  "./app.js?v=20260529-6",
+  "./styles.css?v=20260529-9",
+  "./app.js?v=20260529-9",
   "./manifest.webmanifest",
+  "./icons/apple-touch-icon-minimal.png",
+  "./icons/app-icon-minimal-192.png",
+  "./icons/app-icon-minimal-512.png",
 ];
 
 self.addEventListener("install", (event) => {
